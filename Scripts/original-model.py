@@ -13,8 +13,10 @@ import os
 folder_path = "../levels_transposed/"
 save_folder_path = "../levels_prediction_textfiles/"
 
+input_file = "mario-1-1-edited_trans.txt"
+#input_file = sys.argv[1]
 
-path = folder_path + sys.argv[1]  #"converted.txt"                  # Give the path of text file of an original level here (Transposed text file) !!!
+path = folder_path + input_file  #"converted.txt"                  # Give the path of text file of an original level here (Transposed text file) !!!
 
 try: 
     text = open(path).read().lower()
@@ -100,7 +102,7 @@ for iteration in range(1, 300):
     #model.save_weights('GoTweights',overwrite=True)
 
     start_index = random.randint(0, len(list_words) - maxlen - 1)
-    predictionText = open(save_folder_path + os.path.splitext(sys.argv[1])[0] + "_new.txt", "w+")                       #New level goes here
+    predictionText = open(save_folder_path + os.path.splitext(input_file)[0] + "_new.txt", "w+")                       #New level goes here
     for diversity in [1.0, 1.2]:
         print()
         print('----- diversity:', diversity)
