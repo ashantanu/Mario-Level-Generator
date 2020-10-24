@@ -115,9 +115,9 @@ blocks=[
     [tile_array[8][5],"X"],
     [tile_array[8][6],"X"],
     [tile_array[8][7],"X"],
-    [tile_array[1][5],"X"],
+    #[tile_array[1][5],"X"],
 
-    #[items_tile_array[8][4], "H"],
+    [items_tile_array[8][4], "="],
     
     [items_tile_array[6][0],'o'],
     [items_tile_array[6][1],'o'],
