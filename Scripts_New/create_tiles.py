@@ -11,6 +11,7 @@ from PIL import Image,ImageDraw
 import sys
 import os
 import pickle
+from init_params import * 
 
 #make lines on sheet
 def make_lines_on_sheet(path):
@@ -47,12 +48,6 @@ def get_tile_matrix(sheet,maxX, maxY, xcut=1e4,ycut=1e4):
                 array_.append(img2)
         tile_array.append(array_)
     return tile_array
-
-sheet = "../tileset/NES - Super Mario Bros - Tileset.png"
-enemies_sheet = "../tileset/enemies.png"
-items_sheet = "../tileset/NES - Super Mario Bros - Items Objects and NPCs.png"
-tile_save_path = "../tiles/"
-symbol_path = tile_save_path+"char.pkl"
 
 sheet_, (maxX,maxY) = make_lines_on_sheet(sheet)
 print("saved path:",sheet_)
@@ -94,7 +89,10 @@ tile_types = ['solid','enemy','destructible block',
         "o" : ["coin","collectable","passable"],
         "p" : ["power","collectable","passable"],
         "B" : ["Cannon top","cannon","solid","hazard"],
-        "b" : ["Cannon bottom","cannon","solid"]
+        "b" : ["Cannon bottom","cannon","solid"],
+        
+        "F" : ["Flag","solid","cutoff"],
+        "C" : ["Castle","empty","cutoff"]
     }
 }
 level_type = ['above ground', 'under ground', 'underwater']
@@ -115,6 +113,7 @@ blocks=[
     [tile_array[8][5],"X"],
     [tile_array[8][6],"X"],
     [tile_array[8][7],"X"],
+    [tile_array[0][15],"X"],
     #[tile_array[1][5],"X"],
 
     [items_tile_array[8][4], "="],
@@ -140,7 +139,9 @@ pipes=[
     [tile_array[9][4],"L"]
 ]
 cutoff_tile = [
-    [tile_array[8][16], "F"]
+    [tile_array[8][16], "F"],
+    [tile_array[0][11], "C"],
+    [tile_array[1][11], "C"],
 ]
 
 enemies = [

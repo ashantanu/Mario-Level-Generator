@@ -9,19 +9,9 @@ import csv
 import os
 import sys
 import pickle
-from create_tiles import tile_save_path, symbol_path
 from copy import deepcopy
+from init_params import *
 
-#folder_levels = "../Edited_New/"
-folder_levels = "../Original_Levels/"
-
-orig_csv_save_path = "../levels_CSV_New/"
-trans_csv_save_path = "../levels_transposed_New/"
-
-temp_path = "../level1specs/temp.png"
-default_block = "-"
-flag_char = "F"
-stats_file = "./stats.txt"
 item_block_map={
     "?":"Q",
     "X":"P"
@@ -38,23 +28,6 @@ for i in range(0,len(symbols_array)):
 	name = path + str(i) + ".png"
 	im_array.append(name)
 
-#separate items from other symbols
-items_array=[x for i,x in enumerate(symbols_array) if x=='p']
-items_im_array=[im_array[i] for i,x in enumerate(symbols_array) if x=='p']
-enemies_array=[x for i,x in enumerate(symbols_array) if x=='E']
-enemies_im_array=[im_array[i] for i,x in enumerate(symbols_array) if x=='E']
-long_tile_array = [x for i,x in enumerate(symbols_array) if x=='=']
-long_tile_im_array = [im_array[i] for i,x in enumerate(symbols_array) if x=='=']
-im_array=[im_array[i] for i,x in enumerate(symbols_array) if x not in ['p', 'E',"="]]
-symbols_array=[x for i,x in enumerate(symbols_array) if x not in ['p', 'E',"="]]
-
-levels = os.listdir(folder_levels)
-levels = [x for x in levels if '.gif' in x]
-#for level in levels:
-level = 'mario-1-4.gif'
-
-#####################################
-im = Image.open(folder_levels+level)
 
 def process_im_array(im_array):
     for i in range(0,len(im_array)):
@@ -96,7 +69,7 @@ def get_enemy_locations(img_rgb,enemies_array,enemies_im_array):
     for i, template in enumerate(enemies_im_array):
         #template = cv.imread('../tiles/30.png',0)
         res = cv2.matchTemplate(img_gray,template,cv2.TM_CCOEFF_NORMED)
-        threshold = 0.6
+        threshold = 0.5
         loc = np.where( res >= threshold)
         for pt in zip(*loc[::-1]):
             locations.append([get_tile_x_from_coord(pt[0]), get_tile_x_from_coord(pt[1]),enemies_array[i]])
@@ -108,6 +81,15 @@ def update_text_array_with_enemies(locations, image_matrix, image_matrix_horiz):
         if image_matrix[x][y] == default_block:
             image_matrix[x][y]=e
             image_matrix_horiz[y][x]=e
+    return image_matrix, image_matrix_horiz
+
+def remove_castle_columns(image_matrix, image_matrix_horiz, castle_cols):
+    castle_cols=list(set(castle_cols))
+    castle_cols.sort()
+    for i in reversed(castle_cols):
+        image_matrix.pop(i)
+        for j in range(len(image_matrix_horiz)):
+            image_matrix_horiz[j].pop(i)
     return image_matrix, image_matrix_horiz
 
 def insert_in_horiz_array(array, char, index):
@@ -131,6 +113,7 @@ def process_image(im):
     image_matrix = []
     image_matrix_horiz = []
     flag=False
+    castle_cols=[]
     n_cols = 0
     for x in range (16,maxX,tile_h):
         local_column = []
@@ -147,11 +130,13 @@ def process_image(im):
 
             if char == flag_char:#crop image after flag is reached
                 flag=True
+            if char == castle_char:
+                castle_cols.append(n_cols)
             local_column.append(char)
             insert_in_horiz_array(image_matrix_horiz, char, counter)
             counter+=1
             #end
-        if flag:
+        if flag: 
             break
         n_cols+=1
         image_matrix.append(local_column)
@@ -162,6 +147,8 @@ def process_image(im):
         template_path = long_tile_im_array[i]
         locations, location_tiles = get_long_tile_locations(im, template_path, tile_char)
         image_matrix, image_matrix_horiz = update_text_for_long_tile(locations, location_tiles, image_matrix, image_matrix_horiz)
+    
+    image_matrix, image_matrix_horiz = remove_castle_columns(image_matrix, image_matrix_horiz, castle_cols)
     return image_matrix, image_matrix_horiz, n_cols
 
 def get_tile_x_from_coord(x):
@@ -228,20 +215,52 @@ def update_text_for_long_tile(locations, location_tiles, image_matrix, image_mat
                     image_matrix_horiz[y][x] = tile_char
     return image_matrix, image_matrix_horiz
 
+#separate items from other symbols
+items_array=[x for i,x in enumerate(symbols_array) if x=='p']
+items_im_array=[im_array[i] for i,x in enumerate(symbols_array) if x=='p']
+enemies_array=[x for i,x in enumerate(symbols_array) if x=='E']
+enemies_im_array=[im_array[i] for i,x in enumerate(symbols_array) if x=='E']
+long_tile_array = [x for i,x in enumerate(symbols_array) if x=='=']
+long_tile_im_array = [im_array[i] for i,x in enumerate(symbols_array) if x=='=']
+im_array=[im_array[i] for i,x in enumerate(symbols_array) if x not in ['p', 'E',"="]]
+symbols_array=[x for i,x in enumerate(symbols_array) if x not in ['p', 'E',"="]]
 im_array = process_im_array(im_array)
 enemies_im_array = process_im_array(enemies_im_array)
 items_im_array = process_im_array(items_im_array)
-x, y, n_cols = process_image(im)
 
-file_ = level.split(".")[0]+"_trans.txt"
-file_horiz = level.split(".")[0]+".txt"
-with open(trans_csv_save_path + file_,"w") as f:
-    for col in x:
-        f.write("".join(col)+"\n")
 
-with open(orig_csv_save_path + file_horiz,"w") as f:
-    for col in y:
-        f.write("".join(col)+"\n")
+levels = os.listdir(folder_levels)
+games = os.listdir(folder_levels)
+n_cols_array = []
+
+games = [x for x in games if os.path.isdir(folder_levels+x) and x in games_to_use]
+for game in games:
+    levels = os.listdir(folder_levels+game)
+    levels = [x for x in levels if '.gif' in x or '.png' in x]
+    
+    if not os.path.exists(trans_csv_save_path +"/"+game):
+        os.makedirs(trans_csv_save_path +"/"+game)
+    if not os.path.exists(orig_csv_save_path +"/"+game):
+        os.makedirs(orig_csv_save_path +"/"+game)
+
+    for level in levels:
+        file_ = level.split(".")[0]+"_trans.txt"
+        file_horiz = level.split(".")[0]+".txt"
+        
+        if file_ in os.listdir(trans_csv_save_path +"/"+game):
+            continue
+
+        im = Image.open(folder_levels+"/"+game+"/"+level)
+        x, y, n_cols = process_image(im)
+        n_cols_array.append(n_cols)
+
+        with open(trans_csv_save_path +"/"+game+"/"+ file_,"w") as f:
+            for col in x:
+                f.write("".join(col)+"\n")
+
+        with open(orig_csv_save_path +"/"+game+"/"+ file_horiz,"w") as f:
+            for col in y:
+                f.write("".join(col)+"\n")
 
 with open(stats_file,"w") as f:
-    f.write("Average Number of Columns : "+str(n_cols))
+    f.write("Average Number of Columns : "+str(np.mean(n_cols_array)))
