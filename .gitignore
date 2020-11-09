@@ -1,0 +1,9 @@
+tiles/*
+*logs/*
+Edited/*
+levels_CSV/*
+*_pycache_*
+*.DS_Store
+Scripts/*
+levels_prediction_textfiles/
+.vscode/

@@ -13,7 +13,7 @@ from transformers import get_linear_schedule_with_warmup
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn.functional as F
 #from models import TransformerModel
-from GPT2_Model import GPT2Config, GPT2LMHeadModel
+from GPT2_Model import GPT2_Wrapper
 from create_input import data_from_text_files, create_dataloader, column_length
 from init_params import *
 
@@ -82,7 +82,7 @@ def sample(a, temperature=1.0):
     a = np.exp(a) / np.sum(np.exp(a))
     return np.argmax(np.random.multinomial(1, a, 1))
 
-def train_model(model,optimizer,dataloader,args):
+def train_model(model,scheduler,dataloader,args):
     loss_total = 0
     #TODO Move batching to data loader
     for iteration, (X, h_x, y) in enumerate(dataloader):
@@ -93,15 +93,15 @@ def train_model(model,optimizer,dataloader,args):
         model.train()
         loss = model.get_loss(X, h_x, y)
         loss.backward()
-        optimizer.step()
+        scheduler.step()
         loss_total+=loss.detach().data
 
         if iteration%100==0:
             print("Iteration step:",iteration)
 
-    return model, optimizer, loss_total
+    return model, scheduler, loss_total
 
-def eval_model(model,optimizer,dataloader,args):
+def eval_model(model,dataloader,args):
     loss_total = 0
     #TODO Move batching to data loader
     for _, (X, h_x, y) in enumerate(dataloader):
@@ -116,7 +116,7 @@ def eval_model(model,optimizer,dataloader,args):
 
     return loss_total
 
-def train_gpt(model,optimizer,dataloader,args):
+def train_gpt(model,scheduler,dataloader,args):
     loss_total = 0
     #TODO Move batching to data loader
     for iteration, (X, h_x, y) in enumerate(dataloader):
@@ -124,20 +124,20 @@ def train_gpt(model,optimizer,dataloader,args):
         h_x = h_x.to(args.device)
         y = y.to(args.device)
         input_ = torch.cat((X,y),axis=1)
-        labels = torch.cat((torch.ones(X.shape)*-1,y),axis=1).to(torch.long).to(args.device)
+        labels = torch.cat((torch.ones(X.shape)*-100,y),axis=1).to(torch.long).to(args.device)
         model.train()
         for p in model.parameters(): p.grad = None
         loss = model(input_,lm_labels=labels)
         loss.backward()
-        optimizer.step()
+        scheduler.step()
         loss_total+=loss.detach().data
 
         if iteration%100==0:
             print("Iteration step:",iteration)
 
-    return model, optimizer, loss_total
+    return model, scheduler, loss_total
 
-def eval_gpt(model,optimizer,dataloader,args):
+def eval_gpt(model,dataloader,args):
     loss_total = 0
     #TODO Move batching to data loader
     for _, (X, h_x, y) in enumerate(dataloader):
@@ -146,7 +146,7 @@ def eval_gpt(model,optimizer,dataloader,args):
         h_x = h_x.to(args.device)
         y = y.to(args.device)
         input_ = torch.cat((X,y),axis=1)
-        labels = torch.cat((torch.ones(X.shape)*-1,y),axis=1).to(torch.long).to(args.device)
+        labels = torch.cat((torch.ones(X.shape)*-100,y),axis=1).to(torch.long).to(args.device)
         model.eval()
         with torch.no_grad():
             loss = model(input_,lm_labels=labels)
@@ -160,7 +160,7 @@ def get_prediction_gpt(model, X, h_x, args):
     X = X.to(args.device).to(torch.long)
     h_x = h_x.to(args.device).to(torch.long)
     with torch.no_grad():
-        logits, _ = model(X)
+        logits = model(X)
 
     if isinstance(logits, tuple):  # for gpt2 and maybe others
         logits = logits[0]
@@ -286,10 +286,9 @@ def run_model():
     args.column_length = column_length
     args.n_positions = 256
     args.n_ctx = 256
-    gpt2config = GPT2Config(args)
-    model = GPT2LMHeadModel(gpt2config)
+    model = GPT2_Wrapper(args)
     #model = TransformerModel(args)
-    optimizer = AdamW(model.parameters(), lr = 2e-5, eps = 1e-8 )
+    optimizer = AdamW(model.parameters(), lr = 1e-3, eps = 1e-8 )
     total_steps = len(dataloader)*args.num_epochs
     num_warmup_steps = int(total_steps*0.1)# 10 % of the total steps as warmup
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=total_steps)
@@ -297,7 +296,7 @@ def run_model():
     if os.path.isfile(args.checkpoint_file):
         checkpoint = torch.load(args.checkpoint_file)
         model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         epoch = checkpoint['epoch']
         loss = checkpoint['loss']
         print("Resuming from: Epoch:",epoch, " Loss:", loss)
@@ -308,13 +307,13 @@ def run_model():
         print()
         print('-' * 50)
         print('Iteration', epoch)
-        model, optimizer, loss = train_gpt(model,optimizer,dataloader,args)
+        model, optimizer, loss = train_gpt(model,scheduler,dataloader,args)
         print("Training loss:",loss.data)
 
-        val_loss = eval_gpt(model,optimizer,val_dataloader,args)
+        val_loss = eval_gpt(model,val_dataloader,args)
         print("Validation loss:",val_loss.data)
 
-        test_loss = eval_gpt(model,optimizer,test_dataloader,args)
+        test_loss = eval_gpt(model,test_dataloader,args)
         print("Test loss:",val_loss.data)
 
         writer.add_scalar('Loss/train',loss.data,epoch)
@@ -322,7 +321,7 @@ def run_model():
         writer.add_scalar('Loss/test',test_loss.data,epoch)
         if val_loss < min_loss:
             print("Performance improved...")
-            model.save(args.save_path,optimizer,args,epoch,loss) 
+            model.save(args.save_path,scheduler,args,epoch,loss) 
             #sample_outputs_from_model(test_dataloader_sampling, args)
             sample_sequence_gpt(test_dataloader_sampling, model, args, indices_char)
             with io.open(args.metric_save_path, 'w', encoding='utf8') as f:
