@@ -44,6 +44,7 @@ def parse_args():
     parser.add_argument('--input', type=str, default='mario-1-1-edited_trans.txt',help='Input data file path')
     parser.add_argument('--checkpoint_file', type=str, default='model_checkpoint.pt',help='File path for saving model')
     parser.add_argument('--suffix', type=str, default='V1',help='suffix for saving model')
+    parser.add_argument('--testchanges', type=bool, default=False,help='uses a small subset of data to make sure changes dont break')
 
     #model args 
     parser.add_argument('--emb_size', type=int, default=256,help='Embedding size')
@@ -272,7 +273,8 @@ def run_model():
 
     data_logger = logging.getLogger('Get-Data')
     train, val, test, char_indices, indices_char = data_from_text_files(args, data_logger)
-    train, val, test = [x[:5] for x in train], [x[:5] for x in train], [x[:5] for x in train]#when testing
+    if args.testchanges:
+        train, val, test = [x[:5] for x in train], [x[:5] for x in train], [x[:5] for x in train]#when testing
     dataloader = create_dataloader(args, data_logger, train, sampling=False)
     val_dataloader = create_dataloader(args, data_logger, val, sampling=False)
     test_dataloader = create_dataloader(args, data_logger, test, sampling=False)

@@ -74,7 +74,8 @@ def data_from_text_files(args, logger):
     train = get_dataset_using_char_map(train_levels, logger, char_indices)
     val = get_dataset_using_char_map(val_levels, logger, char_indices)
     test = get_dataset_using_char_map(test_levels, logger, char_indices)
-    logger.info(f"dataset shapes:\nTrain:%s\nVal:%s\nTest:%s\n",str(train[0].shape),str(val[0].shape),str(test[0].shape))
+    logger.info(f"dataset shapes:\nTrain:%s\nVal:%s\nTest:%s\n"%(str(train[0].shape),str(val[0].shape),str(test[0].shape)))
+    print(f"dataset shapes:\nTrain:%s\nVal:%s\nTest:%s\n"%(str(train[0].shape),str(val[0].shape),str(test[0].shape)))
     return train, val, test, char_indices, indices_char
 
 def get_dataset_using_char_map(all_text, logger, char_indices):
