@@ -266,61 +266,65 @@ def sample_outputs_from_model(test_dataloader,args):
 
     return 0
 
-args = parse_args()
-writer = SummaryWriter(args.log_path,filename_suffix='MarioGPT',comment=get_hyperparameter_string(args))
+def run_model():
+    args = parse_args()
+    writer = SummaryWriter(args.log_path,filename_suffix='MarioGPT',comment=get_hyperparameter_string(args))
 
-data_logger = logging.getLogger('Get-Data')
-train, val, test, char_indices, indices_char = data_from_text_files(args, data_logger)
-#train, val, test = [x[:5] for x in train], [x[:5] for x in train], [x[:5] for x in train]#when testing
-dataloader = create_dataloader(args, data_logger, train, sampling=False)
-val_dataloader = create_dataloader(args, data_logger, val, sampling=False)
-test_dataloader = create_dataloader(args, data_logger, test, sampling=False)
-test_dataloader_sampling = create_dataloader(args, data_logger, test, sampling=True)
+    data_logger = logging.getLogger('Get-Data')
+    train, val, test, char_indices, indices_char = data_from_text_files(args, data_logger)
+    train, val, test = [x[:5] for x in train], [x[:5] for x in train], [x[:5] for x in train]#when testing
+    dataloader = create_dataloader(args, data_logger, train, sampling=False)
+    val_dataloader = create_dataloader(args, data_logger, val, sampling=False)
+    test_dataloader = create_dataloader(args, data_logger, test, sampling=False)
+    test_dataloader_sampling = create_dataloader(args, data_logger, test, sampling=True)
 
-#TODO INIT Weights
-print('Build model...')
-args.dict_size = len(char_indices)
-args.column_length = column_length
-args.n_positions = 256
-args.n_ctx = 256
-gpt2config = GPT2Config(args)
-model = GPT2LMHeadModel(gpt2config)
-#model = TransformerModel(args)
-optimizer = AdamW(model.parameters(), lr = 2e-5, eps = 1e-8 )
-total_steps = len(dataloader)*args.num_epochs
-num_warmup_steps = int(total_steps*0.1)# 10 % of the total steps as warmup
-scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=total_steps)
+    #TODO INIT Weights
+    print('Build model...')
+    args.dict_size = len(char_indices)
+    args.column_length = column_length
+    args.n_positions = 256
+    args.n_ctx = 256
+    gpt2config = GPT2Config(args)
+    model = GPT2LMHeadModel(gpt2config)
+    #model = TransformerModel(args)
+    optimizer = AdamW(model.parameters(), lr = 2e-5, eps = 1e-8 )
+    total_steps = len(dataloader)*args.num_epochs
+    num_warmup_steps = int(total_steps*0.1)# 10 % of the total steps as warmup
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=total_steps)
 
-if os.path.isfile(args.checkpoint_file):
-    checkpoint = torch.load(args.checkpoint_file)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    epoch = checkpoint['epoch']
-    loss = checkpoint['loss']
-    print("Resuming from: Epoch:",epoch, " Loss:", loss)
+    if os.path.isfile(args.checkpoint_file):
+        checkpoint = torch.load(args.checkpoint_file)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        epoch = checkpoint['epoch']
+        loss = checkpoint['loss']
+        print("Resuming from: Epoch:",epoch, " Loss:", loss)
 
-# train the model, output generated text after each iteration
-min_loss = 1e10
-for epoch in range(1, 2):
-    print()
-    print('-' * 50)
-    print('Iteration', epoch)
-    model, optimizer, loss = train_gpt(model,optimizer,dataloader,args)
-    print("Training loss:",loss.data)
+    # train the model, output generated text after each iteration
+    min_loss = 1e10
+    for epoch in range(args.num_epochs):
+        print()
+        print('-' * 50)
+        print('Iteration', epoch)
+        model, optimizer, loss = train_gpt(model,optimizer,dataloader,args)
+        print("Training loss:",loss.data)
 
-    val_loss = eval_gpt(model,optimizer,val_dataloader,args)
-    print("Validation loss:",val_loss.data)
+        val_loss = eval_gpt(model,optimizer,val_dataloader,args)
+        print("Validation loss:",val_loss.data)
 
-    test_loss = eval_gpt(model,optimizer,test_dataloader,args)
-    print("Test loss:",val_loss.data)
+        test_loss = eval_gpt(model,optimizer,test_dataloader,args)
+        print("Test loss:",val_loss.data)
 
-    writer.add_scalar('Loss/train',loss.data,epoch)
-    writer.add_scalar('Loss/val',val_loss.data,epoch)
-    writer.add_scalar('Loss/test',test_loss.data,epoch)
-    if val_loss < min_loss:
-        print("Performance improved...")
-        model.save(args.save_path,optimizer,args,epoch,loss) 
-        #sample_outputs_from_model(test_dataloader_sampling, args)
-        sample_sequence_gpt(test_dataloader_sampling, model, args, indices_char)
-        with io.open(args.metric_save_path, 'w', encoding='utf8') as f:
-            f.write("Val Loss:{:.5f}, Test Loss:{:.5f}".format(val_loss.data,test_loss.data))
+        writer.add_scalar('Loss/train',loss.data,epoch)
+        writer.add_scalar('Loss/val',val_loss.data,epoch)
+        writer.add_scalar('Loss/test',test_loss.data,epoch)
+        if val_loss < min_loss:
+            print("Performance improved...")
+            model.save(args.save_path,optimizer,args,epoch,loss) 
+            #sample_outputs_from_model(test_dataloader_sampling, args)
+            sample_sequence_gpt(test_dataloader_sampling, model, args, indices_char)
+            with io.open(args.metric_save_path, 'w', encoding='utf8') as f:
+                f.write("Val Loss:{:.5f}, Test Loss:{:.5f}".format(val_loss.data,test_loss.data))
+
+if __name__ == "__main__":
+    run_model()
