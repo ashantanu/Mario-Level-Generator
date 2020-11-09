@@ -297,6 +297,7 @@ def run_model():
         checkpoint = torch.load(args.checkpoint_file)
         model.load_state_dict(checkpoint['model_state_dict'])
         scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         epoch = checkpoint['epoch']
         loss = checkpoint['loss']
         print("Resuming from: Epoch:",epoch, " Loss:", loss)
@@ -321,7 +322,7 @@ def run_model():
         writer.add_scalar('Loss/test',test_loss.data,epoch)
         if val_loss < min_loss:
             print("Performance improved...")
-            model.save(args.save_path,scheduler,args,epoch,loss) 
+            model.save(args.save_path,scheduler,optimizer,args,epoch,loss) 
             #sample_outputs_from_model(test_dataloader_sampling, args)
             sample_sequence_gpt(test_dataloader_sampling, model, args, indices_char)
             with io.open(args.metric_save_path, 'w', encoding='utf8') as f:

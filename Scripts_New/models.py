@@ -36,9 +36,10 @@ class TransformerModel(nn.Module):
         loss = self.loss(output.view(-1,output.shape[-1]),decoder_output.view(-1))
         return loss
 
-    def save(self, name, scheduler, args, epoch, loss):
+    def save(self, name, scheduler,optimizer, args, epoch, loss):
         torch.save({
             'model_state_dict': self.state_dict(),
+            'optimizer_state_dict' : optimizer.state_dict(),
             'scheduler_state_dict' : scheduler.state_dict(),
             'args': args,
             'epoch': epoch,
