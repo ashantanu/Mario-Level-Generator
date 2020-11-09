@@ -27,7 +27,7 @@ def draw_lines_on_level(folder_path, save_folder_path):
 
 if __name__ == "__main__":
     folder_path = "../Original_Levels/"
-    save_folder_path = "../Edited_New/"
+    save_folder_path = "../Edited/"
     draw_lines_on_level(folder_path, save_folder_path)
     
 
