@@ -10,7 +10,7 @@ import io
 
 from torch.optim import AdamW
 from transformers import get_linear_schedule_with_warmup
-from torch.utils.tensorboard import SummaryWriter
+#from torch.utils.tensorboard import SummaryWriter
 import torch.nn.functional as F
 #from models import TransformerModel
 from GPT2_Model import GPT2_Wrapper
@@ -71,6 +71,7 @@ def parse_args():
     hyperparameter_string = get_hyperparameter_string(args)
     args.save_path = args.log_path + "BestCheckpoint_"+ hyperparameter_string + ".pth"
     args.metric_save_path = args.log_path + "BestMetrics_"+ hyperparameter_string + ".txt"
+    args.loss_save_path = args.log_path + "Loss_"+ hyperparameter_string + ".txt"
     if not os.path.exists(args.log_path):
         os.mkdir(args.log_path)
 
@@ -269,8 +270,7 @@ def sample_outputs_from_model(test_dataloader,args):
 
 def run_model():
     args = parse_args()
-    writer = SummaryWriter(args.log_path,filename_suffix='MarioGPT',comment=get_hyperparameter_string(args))
-
+    #writer = SummaryWriter(args.log_path,filename_suffix='MarioGPT',comment=get_hyperparameter_string(args))
     data_logger = logging.getLogger('Get-Data')
     train, val, test, char_indices, indices_char = data_from_text_files(args, data_logger)
     if args.testchanges:
@@ -304,6 +304,7 @@ def run_model():
 
     # train the model, output generated text after each iteration
     min_loss = 1e10
+    losses = []
     for epoch in range(args.num_epochs):
         print()
         print('-' * 50)
@@ -317,9 +318,11 @@ def run_model():
         test_loss = eval_gpt(model,test_dataloader,args)
         print("Test loss:",val_loss.data)
 
-        writer.add_scalar('Loss/train',loss.data,epoch)
-        writer.add_scalar('Loss/val',val_loss.data,epoch)
-        writer.add_scalar('Loss/test',test_loss.data,epoch)
+        losses.append([epoch,loss.data,val_loss.data,test_loss.data])
+        np.savetxt(args.loss_path, losses, delimiter=",")
+        #writer.add_scalar('Loss/train',loss.data,epoch)
+        #writer.add_scalar('Loss/val',val_loss.data,epoch)
+        #writer.add_scalar('Loss/test',test_loss.data,epoch)
         if val_loss < min_loss:
             print("Performance improved...")
             model.save(args.save_path,scheduler,optimizer,args,epoch,loss) 
