@@ -126,7 +126,7 @@ def train_gpt(model,scheduler,optimizer,dataloader,args):
         h_x = h_x.to(args.device)
         y = y.to(args.device)
         input_ = torch.cat((X,y),axis=1)
-        labels = torch.cat((torch.ones(X.shape)*-100,y),axis=1).to(torch.long).to(args.device)
+        labels = torch.cat((torch.ones(X.shape)*-100,y.to(torch.float)),dim=1).to(torch.long).to(args.device)
         model.train()
         for p in model.parameters(): p.grad = None
         loss = model(input_,lm_labels=labels)
@@ -149,7 +149,7 @@ def eval_gpt(model,dataloader,args):
         h_x = h_x.to(args.device)
         y = y.to(args.device)
         input_ = torch.cat((X,y),axis=1)
-        labels = torch.cat((torch.ones(X.shape)*-100,y),axis=1).to(torch.long).to(args.device)
+        labels = torch.cat((torch.ones(X.shape)*-100,y.to(torch.float)),axis=1).to(torch.long).to(args.device)
         model.eval()
         with torch.no_grad():
             loss = model(input_,lm_labels=labels)
@@ -232,7 +232,7 @@ def sample_sequence_gpt(test_dataloader, model, args, indices_char):
         predictionText.write("{'seed':"+"".join(seed)+"\n,\n")
         current_output = []
         for _ in range(args.max_output_length):
-            input_ = torch.tensor(torch.cat((X,torch.tensor(current_output).unsqueeze(0)),axis=1), device=args.device)
+            input_ = torch.tensor(torch.cat((X.to(torch.float),torch.tensor(current_output).to(torch.float).unsqueeze(0)),axis=1), device=args.device).to(torch.long)
             probs = get_prediction_gpt(model, input_, h_x, args)
             prev = torch.topk(probs, 1)[1] if args.no_sample else torch.multinomial(probs, 1)
             current_output.append(prev.item())
@@ -321,7 +321,7 @@ def run_model():
         print("Test loss:",val_loss.data)
 
         losses.append([epoch,loss.data,val_loss.data,test_loss.data])
-        np.savetxt(args.loss_path, losses, delimiter=",")
+        np.savetxt(args.loss_save_path, losses, delimiter=",")
         #writer.add_scalar('Loss/train',loss.data,epoch)
         #writer.add_scalar('Loss/val',val_loss.data,epoch)
         #writer.add_scalar('Loss/test',test_loss.data,epoch)
