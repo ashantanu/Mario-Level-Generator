@@ -83,7 +83,7 @@ def sample(a, temperature=1.0):
     a = np.exp(a) / np.sum(np.exp(a))
     return np.argmax(np.random.multinomial(1, a, 1))
 
-def train_model(model,scheduler,dataloader,args):
+def train_model(model,scheduler,optimizer,dataloader,args):
     loss_total = 0
     #TODO Move batching to data loader
     for iteration, (X, h_x, y) in enumerate(dataloader):
@@ -94,6 +94,7 @@ def train_model(model,scheduler,dataloader,args):
         model.train()
         loss = model.get_loss(X, h_x, y)
         loss.backward()
+        optimizer.step()
         scheduler.step()
         loss_total+=loss.detach().data
 
@@ -117,7 +118,7 @@ def eval_model(model,dataloader,args):
 
     return loss_total
 
-def train_gpt(model,scheduler,dataloader,args):
+def train_gpt(model,scheduler,optimizer,dataloader,args):
     loss_total = 0
     #TODO Move batching to data loader
     for iteration, (X, h_x, y) in enumerate(dataloader):
@@ -130,6 +131,7 @@ def train_gpt(model,scheduler,dataloader,args):
         for p in model.parameters(): p.grad = None
         loss = model(input_,lm_labels=labels)
         loss.backward()
+        optimizer.step()
         scheduler.step()
         loss_total+=loss.detach().data
 
@@ -309,7 +311,7 @@ def run_model():
         print()
         print('-' * 50)
         print('Iteration', epoch)
-        model, optimizer, loss = train_gpt(model,scheduler,dataloader,args)
+        model, optimizer, loss = train_gpt(model,scheduler,optimizer,dataloader,args)
         print("Training loss:",loss.data)
 
         val_loss = eval_gpt(model,val_dataloader,args)
